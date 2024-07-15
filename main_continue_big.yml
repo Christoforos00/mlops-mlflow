@@ -1,0 +1,34 @@
+#create a github actions yml file which on push to main it: exports env vars, installs python, installs dependencies and runs the mlflow project wine_example
+
+name: Build and Test MLFlow Project
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  PYTHON_VERSION: 3.8
+  MLFLOW_PROJECT_PATH: 'wine_example'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run MLFlow project
+      run: |
+        cd ${{ env.MLFLOW_PROJECT_PATH }}
+        mlflow run .

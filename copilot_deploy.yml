@@ -1,0 +1,72 @@
+name: Deploy to Staging and Production
+on:
+  push:
+    branches:
+      - deploy
+env:
+  AWS_REGION: 'us-east-1' # Set your AWS region here
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  SAGEMAKER_PROJECT_NAME: 'your-sagemaker-project-name' # Set your SageMaker project name here
+jobs:
+  stagingdeploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.8'
+      - name: Install requirements
+        run: pip install -r requirements.txt # Ensure you have a requirements.txt file
+      - name: Set up AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Run build_deployment_configs.py for staging
+        run: python build_deployment_configs.py --sagemaker-project-name ${{ env.SAGEMAKER_PROJECT_NAME }} --region ${{ env.AWS_REGION }} --import-staging-config staging-config.json
+      - name: Store staging configs as artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: staging-configs
+          path: |
+            staging-config-export.json
+            staging-params-export.json
+            staging-tags-export.json
+      - name: Deploy to staging
+        run: python deploy_stack.py --stack-name staging-stack --region ${{ env.AWS_REGION }} --param-file staging-config-export.json --project-name ${{ env.SAGEMAKER_PROJECT_NAME }}
+
+  productiondeploy:
+    needs: stagingdeploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.8'
+
+      - name: Install requirements
+        run: pip install -r requirements.txt
+
+      - name: Set up AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download staging configs
+        uses: actions/download-artifact@v2
+        with:
+          name: staging-configs
+          path: .
+
+      - name: Run build_deployment_configs.py for production
+        run: python build_deployment_configs.py --sagemaker-project-name ${{ env.SAGEMAKER_PROJECT_NAME }} --region ${{ env.AWS_REGION }} --import-prod-config prod-config.json
+
+      - name: Deploy to production
+        run: python deploy_stack.py --stack-name production-stack --region ${{ env.AWS_REGION }} --param-file prod-config-export.json --project-name ${{ env.SAGEMAKER_PROJECT_NAME }}

@@ -1,0 +1,61 @@
+name: Deployment Workflow
+
+on:
+  push:
+    branches: [ deploy ]
+
+jobs:
+  staging-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+    - name: Install requirements
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    - name: Set up AWS credentials for staging
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID_STAGING }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_STAGING }}
+      run: |
+        aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+        aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+        aws configure set region us-west-2
+
+    - name: Run build_deployment_configs.py for staging
+      run: python build_deployment_configs.py ${{ env.DEPLOYMENT_STAGING_ARGS }}
+
+    - name: Store configs as artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: staging-configs
+        path: |
+          exported-params.json
+          exported-tags.json
+
+  production-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+    - name: Install requirements
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    - name: Set up AWS credentials for production
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID_PRODUCTION }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_PRODUCTION }}
+      run: |
+        aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+        aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+        aws configure set region us-west-2
+
+    - name: Download staging configs as artifacts
+      uses: actions/download-artifact@v2
+      with:
+        name: staging-configs
+
+    - name: Run deploy_stack.py for production
+      run: python deploy_stack.py -f endpoint-config-template.yml --param-file exported-params.json --tags-file exported-tags.json
