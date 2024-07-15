@@ -28,7 +28,7 @@ jobs:
       - name: Run build_deployment_configs.py for staging
         run: python build_deployment_configs.py --sagemaker-project-name ${{ env.SAGEMAKER_PROJECT_NAME }} --region ${{ env.AWS_REGION }} --import-staging-config staging-config.json
       - name: Store staging configs as artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: staging-configs
           path: |
