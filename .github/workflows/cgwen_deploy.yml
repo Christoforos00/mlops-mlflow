@@ -53,7 +53,7 @@ jobs:
         aws configure set region us-west-2
 
     - name: Download staging configs as artifacts
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v4.1.7
       with:
         name: staging-configs
 
